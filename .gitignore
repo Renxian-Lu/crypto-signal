@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Package management
+pip-log.txt
+*.egg-info/
+dist/
+build/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IDE
+.idea/
+.vscode/
+*.code-workspace
+
+# Configuration & secrets
+config/settings.toml
+*.local.toml
+.env.*
+secrets.toml
+
+# Data files
+data/
+*.csv
+*.json
+*.parquet
+*.pkl
+*.pickle
+
+# Logs & databases
+*.log
+logs/
+*.db
+*.sqlite*
+
+# Temporary files
+temp/
+tmp/
+*.tmp
+
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Backup files
+*.bak
+*.backup
