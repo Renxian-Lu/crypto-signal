@@ -36,10 +36,11 @@ config/settings.toml
 .env.*
 secrets.toml
 
-# Data files
+# Data files (FIXED: Be specific instead of *.json)
 data/
 *.csv
-*.json
+data/*.json         # ← Only ignore JSON in data directory
+results/*.json      # ← Only ignore result JSON files
 *.parquet
 *.pkl
 *.pickle
