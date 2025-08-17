@@ -1,9 +1,11 @@
-from functools import lru_cache
 import time
 from typing import Dict, Any, Optional
 import pandas as pd
 import ccxt, requests
+import logging
+from cachetools import TTLCache, cached
 
+logger = logging.getLogger(__name__)
 _funding_cache = {}
 
 def fetch_funding_rate_cached(symbol: str, exchange: str = "binance", cache_seconds: int = 300) -> Optional[Dict]:
@@ -25,6 +27,7 @@ def fetch_funding_rate_cached(symbol: str, exchange: str = "binance", cache_seco
     if cache_key in _funding_cache:
         cached_data, timestamp = _funding_cache[cache_key]
         if current_time - timestamp < cache_seconds:
+            logger.debug("Returning cached funding rate for %s@%s", symbol, exchange)
             return cached_data
 
     # Fetch fresh data
@@ -34,9 +37,11 @@ def fetch_funding_rate_cached(symbol: str, exchange: str = "binance", cache_seco
             _funding_cache[cache_key] = (fresh_data, current_time)
         return fresh_data
     except Exception as e:
+        logger.exception("Error fetching funding rate for %s@%s", symbol, exchange)
         # Return cached data if available, even if expired, as fallback
         if cache_key in _funding_cache:
             cached_data, _ = _funding_cache[cache_key]
+            logger.warning("Returning stale cached funding rate for %s@%s due to fetch error", symbol, exchange)
             return cached_data
         raise e
 
@@ -45,7 +50,8 @@ def get_exchange(name: str = "binance"):
     ex.enableRateLimit = True
     return ex
 
-@lru_cache(maxsize=64)
+_ohlcv_cache = TTLCache(maxsize=256, ttl=300)
+@cached(_ohlcv_cache)
 def fetch_ohlcv_cached(symbol: str, timeframe: str = "1h", limit: int = 500, exchange: str = "binance") -> pd.DataFrame:
     """
     Fetch OHLCV data with caching and error handling
@@ -63,6 +69,7 @@ def fetch_ohlcv_cached(symbol: str, timeframe: str = "1h", limit: int = 500, exc
         Exception: If data fetch fails with descriptive error message
     """
     try:
+        start = time.time()
         ex = get_exchange(exchange)
         data = ex.fetch_ohlcv(symbol, timeframe=timeframe, limit=limit)
         if not data:
@@ -76,7 +83,10 @@ def fetch_ohlcv_cached(symbol: str, timeframe: str = "1h", limit: int = 500, exc
 
         return df
     except Exception as e:
+        logger.exception("Failed to fetch OHLCV for %s %s on %s", symbol, timeframe, exchange)
         raise Exception(f"Failed to fetch OHLCV data for {symbol} from {exchange}: {str(e)}")
+    finally:
+        logger.info("fetch_ohlcv_cached %s %s took %.2fs", symbol, timeframe, time.time() - start)
 
 def fetch_funding_rate(symbol: str, exchange: str = "binance") -> Optional[Dict[str, Any]]:
     """
@@ -101,7 +111,7 @@ def fetch_funding_rate(symbol: str, exchange: str = "binance") -> Optional[Dict[
             data = r.json()
 
             if not data:
-                print(f"Warning: Empty funding rate response for {symbol}")
+                logger.warning("Empty funding rate response for %s", symbol)
                 return None
 
             return {
@@ -112,14 +122,14 @@ def fetch_funding_rate(symbol: str, exchange: str = "binance") -> Optional[Dict[
                 "time": int(data.get("time", 0)),
             }
         except requests.exceptions.RequestException as e:
-            print(f"Network error fetching funding rate for {symbol}: {str(e)}")
+            logger.warning("Network error fetching funding rate for %s: %s", symbol, str(e))
             return None
         except (ValueError, KeyError) as e:
-            print(f"Data parsing error for funding rate {symbol}: {str(e)}")
+            logger.error("Data parsing error for funding rate %s: %s", symbol, str(e))
             return None
         except Exception as e:
-            print(f"Unexpected error fetching funding rate for {symbol}: {str(e)}")
+            logger.exception("Unexpected error fetching funding rate for %s: %s", symbol, str(e))
             return None
     else:
-        print(f"Funding rate not supported for exchange: {exchange}")
+        logger.info("Funding rate not supported for exchange: %s", exchange)
         return None

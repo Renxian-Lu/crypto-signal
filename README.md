@@ -28,6 +28,5 @@ python -m venv .venv
 
 ### Excute the project
 
-```
-uvicorn api.main:app --reload --port 8000
-```
+Backend: `uvicorn api.main:app --reload --port 8000`
+Frontend: `npm run dev`
